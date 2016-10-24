@@ -1,0 +1,151 @@
+%% This is file `pxj-common.def'.
+
+%% declarations
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{pxj-common.def}
+
+%-------------------------------------- general
+
+%% \pxjm@before@options
+% The code executed after loading this module.
+\let\pxjm@before@options\@empty
+%% \pxjm@after@options
+% The code executed after \ProcessOptions.
+\let\pxjm@after@options\@empty
+
+%--------------------------------------- engines
+
+%% variables
+\let\pxjm@engine\relax           % actual engine
+\let\pxjm@engine@opt\relax       % engine specified by option
+\let\pxjm@engine@given\relax     % engine option
+
+%% detect engine
+\ifx\jintercharskip\@undefined\else \let\pxjm@engine=j \fi
+\ifx\kanjiskip\@undefined\else      \let\pxjm@engine=p \fi
+\ifx\forcecjktoken\@undefined\else  \let\pxjm@engine=u \fi
+
+%% abort on unsupported engines
+\ifx\pxjm@engine\relax
+  \PackageError\pxjm@clsname
+   {This engine is not supported}
+   {The current process will be aborted soon.\MessageBreak
+    Type <return> to proceed.}
+\expandafter\@@end\fi % quit the process
+
+%% jlatex mode
+\ifx j\pxjm@engine
+  % check if 'jlatex' option is there
+  \@for\pxjm@tmpa:=\@classoptionslist\do{%
+    \@for\pxjm@tmpb:={jlatex,autodetect-engine}\do{%
+      \ifx\pxjm@tmpa\pxjm@tmpb \let\pxjm@engine@given\pxjm@tmpa \fi}}
+  \ifx\pxjm@engine@given\relax
+    \PackageError\pxjm@clsname
+     {Wrong engine option is given\MessageBreak
+      ('jlatex' must be specified)}%
+     {\@ehc}
+  \else
+    % remove the option
+    \def\pxjm@tmpb#1{%
+      \@expandtwoargs\@removeelement\pxjm@engine@given#1#1}
+    \expandafter\pxjm@tmpb\csname opt@\pxjm@clsname.cls\endcsname
+    \pxjm@tmpb\@unusedoptionlist
+  \fi
+  % load the base class and quit
+  \g@addto@macro\pxjm@before@options{%
+    \LoadClassWithOptions{\pxjm@base@clsname}[]%
+    \csname endinput\endcsname}
+\expandafter\endinput\fi\relax
+
+%% declare engine optons
+\let\pxjm@engine@opt=p
+\def\pxjm@engine@given{platex}
+\g@addto@macro\pxjm@before@options{%
+  \DeclareOption{jlatex}{%
+    \let\pxjm@engine@opt=j\def\pxjm@engine@given{jlatex}}%
+  \DeclareOption{platex}{%
+    \let\pxjm@engine@opt=p\def\pxjm@engine@given{platex}}%
+  \DeclareOption{uplatex}{%
+    \let\pxjm@engine@opt=u\def\pxjm@engine@given{uplatex}}%
+  \DeclareOption{autodetect-engine}{%
+    \let\pxjm@engine@opt\relax\def\pxjm@engine@given{autodetect-engine}}}
+\g@addto@macro\pxjm@after@options{%
+  \ifx\pxjm@engine@opt\relax
+    \let\pxjm@engine@opt\pxjm@engine
+  \fi
+  \ifx\pxjm@engine@opt\pxjm@engine\else
+    \PackageError\pxjm@clsname
+     {Wrong engine option '\pxjm@engine@given' is given}%
+     {\@ehc}
+  \fi}
+
+%--------------------------------------- fonts
+
+%% \pxjm@std@scale
+\def\pxjm@std@scale{0.91542}
+
+%% Japanese font family
+\begingroup
+  \ifx u\pxjm@engine
+    \def\pxjm@Y{JY2}\def\pxjm@T{JT2}
+    \let\pxjm@sc\pxjm@std@scale
+  \else
+    \def\pxjm@Y{JY1}\def\pxjm@T{JT1}
+    \@tempdima=\pxjm@std@scale\p@ \@tempdima=1.03927\@tempdima
+    \edef\pxjm@sc{\strip@pt\@tempdima}
+  \fi
+  \global\expandafter\let\csname\pxjm@Y/mc/m/n/10\endcsname\relax
+  \global\expandafter\let\csname\pxjm@Y/gt/m/n/10\endcsname\relax
+  \global\expandafter\let\csname\pxjm@T/mc/m/n/10\endcsname\relax
+  \global\expandafter\let\csname\pxjm@T/gt/m/n/10\endcsname\relax
+  \ifx u\pxjm@engine
+    \DeclareFontShape{\pxjm@Y}{mc}{m}{n}{<->s*[\pxjm@sc]upjisr-h}{}
+    \DeclareFontShape{\pxjm@Y}{gt}{m}{n}{<->s*[\pxjm@sc]upjisg-h}{}
+    \DeclareFontShape{\pxjm@T}{mc}{m}{n}{<->s*[\pxjm@sc]upjisr-v}{}
+    \DeclareFontShape{\pxjm@T}{gt}{m}{n}{<->s*[\pxjm@sc]upjisg-v}{}
+  \else
+    \DeclareFontShape{\pxjm@Y}{mc}{m}{n}{<->s*[\pxjm@sc]jis}{}
+    \DeclareFontShape{\pxjm@Y}{gt}{m}{n}{<->s*[\pxjm@sc]jisg}{}
+    \DeclareFontShape{\pxjm@T}{mc}{m}{n}{<->s*[\pxjm@sc]jis-v}{}
+    \DeclareFontShape{\pxjm@T}{gt}{m}{n}{<->s*[\pxjm@sc]jisg-v}{}
+  \fi
+  \DeclareFontShape{\pxjm@Y}{mc}{m}{it}{<->ssub*mc/m/n}{}
+  \DeclareFontShape{\pxjm@Y}{mc}{m}{sl}{<->ssub*mc/m/n}{}
+  \DeclareFontShape{\pxjm@Y}{mc}{m}{sc}{<->ssub*mc/m/n}{}
+  \DeclareFontShape{\pxjm@Y}{gt}{m}{it}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@Y}{gt}{m}{sl}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@Y}{mc}{bx}{it}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@Y}{mc}{bx}{sl}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@T}{mc}{m}{it}{<->ssub*mc/m/n}{}
+  \DeclareFontShape{\pxjm@T}{mc}{m}{sl}{<->ssub*mc/m/n}{}
+  \DeclareFontShape{\pxjm@T}{mc}{m}{sc}{<->ssub*mc/m/n}{}
+  \DeclareFontShape{\pxjm@T}{gt}{m}{it}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@T}{gt}{m}{sl}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@T}{mc}{bx}{it}{<->ssub*gt/m/n}{}
+  \DeclareFontShape{\pxjm@T}{mc}{bx}{sl}{<->ssub*gt/m/n}{}
+\endgroup
+
+%% patch to \set@fontsize
+\def\pxjm@tmpa{\def\set@fontsize##1##2##3}
+\expandafter\pxjm@tmpa\expandafter{%
+  \set@fontsize{#1}{#2}{#3}%
+  \expandafter\def\expandafter\size@update\expandafter{%
+    \size@update \pxjm@font@size@changed}}
+\def\pxjm@font@size@changed{%
+  \@tempdima=\f@size\p@ \kanjiskip=0pt plus 0.025\@tempdima\relax
+  \xkanjiskip=0.25zw\relax}
+
+%--------------------------------------- misc public
+
+%%<*> \JTeX/\JLaTeX/\JLaTeXe
+% The logos.
+\DeclareRobustCommand{\JTeX}{%
+  \leavevmode\lower.5ex\hbox{J}\kern-.18em\TeX}
+\DeclareRobustCommand{\JLaTeX}{%
+  \leavevmode\lower.5ex\hbox{\rm J}\kern-.1em\LaTeX}
+\DeclareRobustCommand{\JLaTeXe}{%
+  \leavevmode\lower.5ex\hbox{\rm J}\kern-.1em\LaTeXe}
+
+%--------------------------------------- done
+\endinput
+%% EOF

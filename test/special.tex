@@ -1,0 +1,515 @@
+\documentclass[autodetect-engine,a4paper]{pxj-article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\sloppy
+\newcommand*{\xCd}[1]{\texttt{#1}}
+\newcommand*{\xCs}[1]{\texttt{\symbol{92}#1}}
+\newcommand*{\pTeX}{p\TeX}
+\newcommand*{\XeTeX}{XeTeX}
+\newcommand*{\TikZ}{Ti\emph{k}Z}% アレ
+\newcommand*{\xNote}{\par\noindent ※}
+\sloppy
+
+%-------------------
+\title{special命令}
+\author{アレWiki}
+%\date{2016年4月23日}
+
+%========================================
+\begin{document}
+\maketitle
+\begin{abstract}
+special命令とは，DVI標準ではサポートしていない，
+各DVIウェアの独自拡張機能を指示するための命令です。
+今日の{\LaTeX}において普通に用いられている，
+\begin{itemize}
+\item 図形描画（Ti\emph{k}Z，PSTricksなど）
+\item 画像ファイルの取込（graphicx）
+\item ハイパーリンクの埋込（hyperref）
+\item 用紙サイズ情報の記録（geometryなど）
+\end{itemize}
+などの機能の実装にはspecial命令が使用されています。
+\end{abstract}
+
+\tableofcontents
+
+%========================================
+\section{special命令の基本}
+\label{sec:basic}
+
+% 今の時代に「デバイス」が何を指すかという議論は避けたい。
+
+%-------------------
+\subsection{special命令とは何か}
+\label{ssec:what-is}
+
+（旧来の）{\TeX}処理系は組版結果をDVIファイルに出力します。
+この「DVI (device-independent) ファイル」というのは，
+その名称の通り，
+デバイス非依存な一種のページ記述言語で書かれています。
+
+DVIファイルは「“A”の文字を出力する」
+「参照点を右に1\,pt移動する」
+などの“DVI命令”から構成されます。
+DVI命令の意味は仕様で明確に決められているので，
+どのDVIウェア（DVIファイルを扱うソフトウェア）
+を用いても同じように解釈されます。
+
+しかし，場合によっては，
+特定のDVIウェアにおいて独自拡張の機能が使える方が
+便利なことがあります。
+例えば，DVI標準では「色を付ける」「ハイパーリンクを置く」
+などの機能は規定されていません。
+\footnote{モノクロのプリンターで紙に印刷する場合には
+  これらの機能は意味を持たないので，
+  “デバイス非依存”を旨とするDVI標準で
+  サポートされないのは当然でしょう。}%
+しかしPDF文書形式ではこれらの機能が実現できます。
+となると，dvipdfmxのような「DVIをPDFに変換する」
+DVIドライバを実装する場合には，
+そのような拡張機能を持たせたいというのは自然な要求です。
+
+そこで，DVI仕様では
+「仕様では意味を定めず，専ら独自拡張機能のために使う」
+ための特別な命令である「special命令」
+を敢えて用意しています。
+つまり，標準の部分と独自拡張の部分を明確に分離する方針を
+とっているのです。
+
+そしてTeX言語では，
+この「DVIのspecial命令」を発行するための機能として，
+\verb|\special|プリミティブが用意されています。
+
+今日の{\LaTeX}では，「色を付ける」機能は(x)colorパッケージ，
+ハイパーリンクを作る機能はhyperrefパッケージで
+提供されていますが，これらの機能の実装には
+special命令（\verb|\special|プリミティブ）
+が利用されています。
+
+%--------------------
+\subsection{DVIのspecial命令}
+\label{ssec:dvi-special}
+
+DVIのspecial命令についての概略を把握するため，
+一つ例を挙げてみます。
+\footnote{special命令を扱うのに，
+  DVI仕様の詳細についての理解は（一般には）不要です。}
+
+\begin{quote}\begin{verbatim}
+Te\special{color Red}X
+\end{verbatim}\end{quote}
+
+この{\TeX}言語コード（の断片）をコンパイルすると，
+以下のようなDVI命令の列が生成されます。
+\footnote{ここで挙げたダンプ形式はここでの説明のための
+  アドホックなものです。
+  実際にDVIファイルを人間が読める形に
+  “逆アセンブル”するには，
+  dvitypeやdv2dtなどのツールを利用します。
+  なお，dvitypeではspecial命令は“\xCd{xxx}”と表示されます。}
+% DVIでのspecialの扱いの雰囲気を知らせるため，
+% 敢えてDVIコードを出す。
+
+\begin{quote}\begin{verbatim}
+54                     : setchar84          % 'T'を出力
+91FF2AAA               : right3 -54614      % カーニングの左移動
+65                     : setchar101         % 'e'を出力
+EF09636F6C6F7220526564 : special1 9 'color Red' % special命令
+58                     : setchar88          % 'X'を出力
+\end{verbatim}\end{quote}
+
+これから判るように，\verb|\special|プリミティブに
+与えた引数の文字列は，
+{\TeX}処理系により解釈されることなく，
+そのままDVIのspecial命令の引数として書き出されています。
+つまりDVI標準としては
+「“\xCd{color Red}”という拡張命令が発行された」
+という意味しか持っていません。
+ところが，dvipsにとっては“\xCd{color Red}”という
+special命令は
+「以降の文字の色を赤に変える」という意味を持っています。
+従って，上記の命令列を含むDVIファイルを
+dvipsで処理した場合は，
+文字“X”が赤色で出力される
+（ようなPostScriptファイルが生成される）ことになります。
+
+%-------------------
+\subsection{{\TeX}の\xCs{special}プリミティブ}
+\label{ssec:tex-special}
+
+\verb|\special|プリミティブは以下のような
+単純な書式を持ちます。
+\footnote{「暗黙の波括弧」などの些末な話は
+  措いておきましょう。}
+
+\begin{quote}\begin{verbatim}
+\special{<トークン列>}
+\end{verbatim}\end{quote}
+
+ここで引数のトークン列は\verb|\write|プリミティブと
+同様に“文字列化”されます。
+つまり，完全展開した後に文字列化した結果が
+「DVIのspecial命令の引数の文字列」となるわけです。
+
+{\TeX}処理系は，\verb|\special{～}|が実行
+\footnote{もちろん，\xCs{special}プリミティブは
+  展開可能ではありません。}
+されると，「“～”というspecial命令を発行する」
+という情報を込めた特殊なオブジェクト
+（whatsitノード）を現在の参照点に配置します。
+そして，そのオブジェクトを含むページが出力（shipout）
+された時に，そのページのDVI命令列の中に実際に
+special命令として現れることになります。
+
+%-------------------
+\subsection{special命令の文字コード}
+
+先述の通り\verb|\special|の引数のトークン列は
+「文字列化してDVIのspecial命令の引数として書き出される」
+のですが，
+その際に文字コードの扱いは以下のようになっています。
+
+\begin{itemize}
+\item 8ビット欧文の{\TeX}においては，
+  文字とは実質バイトのことなので，
+  引数のバイト列がそのままDVIに書き出されます。
+\item (u){\pTeX}において，和文文字は，
+  エンジンの内部漢字コードでエンコードされた
+  バイト列として書き出されます。
+  ソースファイルの漢字コードとは無関係であることに
+  注意してください。
+  欧文文字の扱いは欧文{\TeX}と同じです。
+\item {\XeTeX}%
+  \footnote{拡張DVIファイルに書き出す時の話です。
+    なお，実用されることはまずないと思いますが，
+    “DVIモードのLuaTeX”も{\XeTeX}と同じ動作になります。}%
+  においては，文字列は常にUTF-8でエンコードされた
+  バイト列として書き出されます。
+  やはりソースファイルの文字コードは無関係です。
+\end{itemize}
+
+%-------------------
+\subsection{PDF直接出力のときの\xCs{special}プリミティブ}
+\verb|\special|プリミティブはDVIのspecial命令を
+出力するためのものです。
+従って，PDF出力モードの{pdf\TeX}や{Lua\TeX}では
+無意味であるのでサポートされていません。
+（\verb|\special|を実行すると警告が出て無視されます。）
+
+\xNote ただし例外として，引数が
+
+\begin{quote}\begin{verbatim}
+\special{pdf: <トークン列>}
+\end{verbatim}\end{quote}
+
+のように“\xCd{pdf:}”で始まっている場合は
+
+\begin{quote}\begin{verbatim}
+\pdfliteral{<トークン列>}
+\end{verbatim}\end{quote}
+
+と同等と解釈されます。
+\footnote{不幸なことに，dvipdfmxの独自の special命令は
+  「\xCd{pdf:}」で始まっており，この規定と衝突しています。
+  そのため，この仕様は
+  「dvipdfmx用の{\TeX}文書を誤って{pdf\TeX}で
+  コンパイルした時に，エラーも傾向も出ずに壊れた
+  PDFファイルを出力してしまう」
+  というトラブルの原因となってしまっています。}
+
+{\XeTeX}は表向きはPDFを直接出力しているように見えますが，
+実は内部ではいったん「XDV形式」（DVIの拡張版）の
+ファイルを出力してそれをxdvipdfmx（dvipdmxの拡張版）で
+PDFに変換する，という手順を踏んでいます。
+従って，{\XeTeX}ではdvipdfmxがサポートする
+special命令が使用できます。
+また，{\XeTeX}の拡張プリミティブが内部では
+special命令により実現されていることもあります。
+
+%-------------------
+\subsection{ドライバ依存に関する注意}
+\label{ssec:device-independent}
+
+そもそもspecial命令は「特定のDVIウェアの独自拡張命令」
+を表すためのものなので，当然，それを使ったDVIファイルは
+その特定のDVIウェアで処理する必要があります。
+
+例えば，先の例に挙げた
+
+\begin{quote}\begin{verbatim}
+\special{color Red}
+\end{verbatim}\end{quote}
+
+はdvips用のspecial命令なので，これを用いたDVIファイルは
+dvipsでないと正常に処理されない，ということです。
+
+ただし，ある種類のspecial命令が（互換性確保などの理由で）
+複数のDVIウェアでサポートされている場合もあります。
+例えば，実は「\xCd{color Red}」というspecial命令は
+dvipdfmxでもサポートされています。
+\footnote{さらに言うと，「\xCd{color push Red}」
+  という形式のspecial命令であれば
+  dvips，dvipdfmxの他にdvioutでもサポートされます。}
+
+いずれにしても，\verb|\special|プリミティブを含む
+コードを扱うときは，それが特定のDVIウェアに
+依存することを常に念頭に置いておく必要があります。
+
+\subsubsection{{\LaTeX}パッケージのドライバオプション}
+\label{sssec:driver-option}
+
+DVI標準にない機能で，
+「複数のDVIウェアでサポートされているが，
+それを実現するspecial命令の書き方が異なる」
+という場合があります。
+例えば，「テキストを斜体変形する」という機能は
+dvipsでは次のようなPostScript special命令を使った
+マクロで実現できます。
+
+\begin{quote}\begin{verbatim}
+% slantbox{<傾き率>}{<テキスト>}
+\def\slantbox#1#2{\leavevmode\bgroup\setbox0\hbox{#2}%
+  \special{ps: gsave currentpoint currentpoint translate
+    [1 0 #1 neg 1 0 0] concat neg exch neg exch translate}%
+  \hbox to0pt{\copy0\hss}%
+  \special{ps: grestore}\kern\wd0\egroup}
+\end{verbatim}\end{quote}
+
+ところが，同じ機能について，dvipdfmxでは
+次のようにPDF specialを使う必要があります。
+
+\begin{quote}\begin{verbatim}
+% slantbox{<傾き率>}{<テキスト>}
+\def\slantbox#1#2{\leavevmode\bgroup\setbox0\hbox{#2}%
+  \special{pdf:btrans 1 0 #1 1 0 0}\hbox to0pt{\copy0\hss}%
+  \special{pdf:etrans}\kern\wd0\egroup}
+\end{verbatim}\end{quote}
+
+ここで，そのような機能を{\LaTeX}パッケージ
+（“twslantパッケージ”）として提供したいとします。
+そういう場合は，graphicxパッケージなどと同様に，
+「文書作成者がドライバオプションを指定する」
+インタフェースを採用するのが通例です。
+% tw- は "TeX Wiki" の略。
+
+\begin{quote}\begin{verbatim}
+% twslant.sty
+\RequirePackage{ifpdf}
+\DeclareOption{dvips}{% dvipsの場合
+  \def\twslant@start#1{\special{ps:
+    gsave currentpoint currentpoint translate
+    [1 0 #1 neg 1 0 0] concat neg exch neg exch translate}}%
+  \def\twslant@end{\special{ps: grestore}}}
+\DeclareOption{dvipdfmx}{% dvipdfmxの場合
+  \def\twslant@start#1{\special{pdf:btrans 1 0 #1 1 0 0}}%
+  \def\twslant@end{\special{pdf:etrans}}}
+\DeclareOption{pdftex}{% pdfTeXの場合
+  \def\twslant@start#1{\pdfsave\pdfsetmatrix{1 0 #1 1}}%
+  \def\twslant@end{\pdfrestore}}
+\ifpdf \ExecuteOption{pdftex}\fi % pdfTeXを自動判定する
+\ProcessOptions\relax
+% \slantbox{<傾き率>}{<テキスト>}
+\newcommand*\slantbox[2]{\leavevmode\bgroup\setbox\z@\hbox{#2}%
+  \twslant@start{#1}\hb@xt@\z@{\copy\z@\hss}%
+  \twslant@end\kern\wd\z@\egroup}
+\end{verbatim}\end{quote}
+
+この方式を採用しておくと，
+パッケージの使用者（文書作成者）は，
+「dvipsを使う場合とdvipdfmxを使う場合で，
+ソースの記述が一か所しか異ならない」
+というメリットが得られます。
+
+\begin{quote}\begin{verbatim}
+% ↓ドライバオプションを変えるだけでよい!
+\documentclass[a4paper,uplatex,dvips]{jsarticle}
+%...
+\usepackage{twslant}
+%...
+\begin{document}
+\slantbox{0.3}{※暫定版（2016-08-08）}
+%...
+\end{document}
+\end{verbatim}\end{quote}
+
+たとえ，一種類のDVIウェアしかサポートしないという場合も，
+この方式を採用することにはメリットがあります。
+今日の習慣では，文書作成者がドライバオプションを
+グローバルオプションとして指定していることが期待できるので，
+サポート外のDVIウェア（や{\TeX}エンジン）
+が使われている場合に，適切なエラーを出すことができるのです。
+
+\begin{quote}\begin{verbatim}
+% twxxx.sty
+\newif\iftwxxx@ok \twxxx@okfalse
+\DeclareOption{dvipdfmx}{\twxxx@oktrue}
+\DeclareOption{dvips}{\twxxx@okfalse}
+\DeclareOption{dviout}{\twxxx@okfalse}
+% pdfTeX とかの扱いも同様に...
+\iftwxxx@ok\else
+  \PackageError{twxxx}{Not supported}\@ehc
+\fi
+\end{verbatim}\end{quote}
+
+% 一般のLaTeXユーザに対する注意をこの記事に書いてもあまり意味がなさそう。
+
+%=======================================
+\section{主要な\xCs{special}命令}
+\label{sec:specials-set}
+
+ここでは重要なspecial命令の使い方について解説します。
+
+% 仕様の解説がメイン。
+
+\xNote special命令の書式については，
+各開発者が勝手に決めているものなので，
+specialの種類によって大きく異なっています。
+
+%-------------------
+\subsection{Papersize special}
+\label{ssec:papersize-specials}
+
+サポート： dvips，(x)dvipdfmx，dviout
+
+\begin{quote}\begin{verbatim}
+papersize=<横幅>,<縦幅>
+\end{verbatim}\end{quote}
+
+命令があるページとそれ以降のページについて，
+出力の用紙サイズを指定します。
+\xCd{<横幅>}と\xCd{<縦幅>}には
+\xCd{210mm}や\xCd{11in}のような
+「{\TeX}の単位付き数値」を指定します。
+
+これはページ全体（または文書全体）に関わる設定なので，
+{\LaTeX}では通常は\verb|\AtBeginDvi|命令などを
+用いて本文領域の外に配置されます。
+
+\begin{quote}\begin{verbatim}
+\AtBeginDvi{\special{papersize=182mm,257mm}} % JIS B5で出力
+\end{verbatim}\end{quote}
+
+\xNote mag指定が有効（1000以外）な場合，
+papersize specialで指定する長さはmagの影響を受けません。
+つまり“true付”単位と同じ扱いになります。
+\footnote{\xCd{210truemm}などの“true付”単位を
+  明示的に指定することは（少なくともdvipsでは）できません。
+  ちなみに，同じ用途のpdf:pagesize special命令では，
+  true付とtrue無しの単位は本来の意味を持ちます。}
+
+\xNote 用紙サイズに関連するものとして他に
+landscape special（\verb|\special{landscape}|）が
+ありますが，現在は非推奨となっています。
+特にlandscapeとpapersizeを同時に使用すべきではありません。
+
+\begin{itemize}
+\item 参照： 紙面サイズの指定 (1/2) --- マクロツイーター
+\end{itemize}
+
+%-------------------
+\subsection{psfile special}
+\label{ssec:psfile-specials}
+
+サポート： dvips，(x)dvipdfmx，dviout
+
+\begin{quote}\begin{verbatim}
+psfile=<ファイル名> [hscale=<横拡大率>] [vscale=<縦拡大率>
+  [angle=<回転角度>] [clip]
+  [llx=<左下x>] [lly=<左下y>] [urx=<右上x>] [ury=<右上y>]
+  [rhi=<幅>] [rwi=<高さ>]
+\end{verbatim}\end{quote}
+
+（\xCd{[ ]} は省略可能であることを示す。
+\xCd{[ ]} 自体は書かない。）
+
+EPS画像ファイルを読み込みその場に配置します。
+
+\begin{itemize}
+\item “\xCd{PSfile=...}”と書いてもよい。
+\item \xCd{clip}は元画像のバウンディングボックス外の
+  部分の描画を抑止する。
+\item \xCd{<横拡大率>}，\xCd{<縦拡大率>}は
+  百分率の整数で指定。
+\item \xCd{<回転角度>}は度単位の整数で指定。
+\item \xCd{<左下x>}，\xCd{<左下y>}，\xCd{<右上x>}，
+  \xCd{<右上y>}はバウンディングボックスの座標を表し，
+  bp単位の実数で指定。
+\item \xCd{<幅>}，\xCd{<高さ>}は挿入後の寸法を表し，
+  これらは0.1\,bp単位の実数で指定。
+\end{itemize}
+
+\xNote 多くのドライバにおいて，
+graphicxパッケージの機能でEPS画像を読み込む時には
+psfile specialが用いられます。
+
+\xNote かつてはdvips以外にも様々なDVI→PS変換用の
+DVIウェアが存在し，それぞれが異なる形式の
+EPS画像読込のspecialをサポートしていました。
+dvipsでは，互換性のためこれらの一部
+（“\xCd{epsfile=...}”，“\xCd{postscriptbox...}”）
+をサポートしています。
+
+\begin{itemize}
+\item 参照： ナントカBoxの話(3) --- マクロツイーター
+\end{itemize}
+
+%-------------------
+\subsection{color special}
+\label{ssec:color-specials}
+
+サポート： dvips，(x)dvipdfmx，dviout
+
+\begin{quote}\begin{verbatim}
+color <色指定>
+color push <色指定>
+color pop
+background <色指定>
+\end{verbatim}\end{quote}
+
+色を指定します。
+元々はdvipsで規定されたもので，
+他のDVIウェアでも一部の仕様がサポートされています。
+
+“\xCd{background <色指定>}”は背景色を，
+“\xCd{color <色指定>}”は描画色を指定します。
+描画色は仕様的には{\TeX}の出力（テキストや罫）に
+対するものですが，
+通常は，PostScriptやPDFの描画状態にも反映されます。
+
+{\TeX}の“局所的な代入”と同様の仕組の“局所的な色指定”の
+実装を容易にするため，“色スタック”が用意されています。
+“\xCd{color push}”と“\xCd{color pop}”は
+この色スタックを操作するものです。
+色スタックが空でない場合は，
+そのトップにある色が実際の描画色となります。
+
+color specialの引数の\xCd{<色指定>}の書式は次の通りです。
+
+\begin{itemize}
+\item “\xCd{Black}”や“\xCd{Red}”などの，
+  予め定義された名前。
+  dvipsでは，単にその名前を実行するものと解釈されます。
+  （予め“\xCd{/Red \{0 1 1 0 setcmykcolor\} bind ref}”
+  のように定義されているわけです。）
+\item 色モデルとパラメタによる定義。
+  以下のものがあります。
+  dvipsでは，“\xCd{rgb 0 0.5 0}”を
+  “\xCd{0 0.5 0 TeXrgbcolor}”のように解釈します。
+  （\xCd{TeXrgbcolor}は予め定義されたマクロ。）
+  \begin{itemize}
+  \item \xCd{rgb <R> <G> <B>}
+  \item \xCd{hsb <H> <S> <B>}
+  \item \xCd{cmyk <C> <M> <Y> <K>}
+  \item \xCd{gray <G>}
+  \end{itemize}
+\item 「\xCd{" <PostScriptコード>}」で任意の
+  “色を設定するためのコード”が指定できます。
+\end{itemize}
+
+\xNote (x)colorパッケージについて，
+  dvips等のいくつかのドライバはcolor specialを
+  利用しています。
+  （dvipdfmx用ドライバはPDF specialを利用。）
+
+%=======================================
+\end{document}
